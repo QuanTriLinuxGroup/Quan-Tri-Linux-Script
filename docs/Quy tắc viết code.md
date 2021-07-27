@@ -53,7 +53,8 @@ fi
   - Verify argument
   - Thực hiện action
   - Update data
-- Mỗi section sẽ được phân biệt bằng một frame comment ở đầu ví dụ như sau:
-        #----------------------------------------------------------#
-        #                    Variable&Function                     #
-        #----------------------------------------------------------#
+- Mỗi section sẽ được phân biệt bằng một frame comment ở đầu ví dụ như sau:  
+        #----------------------------------------------------------#  
+        #                    Variable&Function                     #  
+        #----------------------------------------------------------#  
+        
