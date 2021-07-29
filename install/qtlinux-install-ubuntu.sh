@@ -7,12 +7,9 @@
 #                  Variables&Functions                     #
 #----------------------------------------------------------#
 
-memory=$(grep 'MemTotal' /proc/meminfo |tr ' ' '\n' |grep [0-9])
-arch=$(uname -i)
-os='ubuntu'
+memory=$(grep 'MemTotal' /proc/meminfo |tr ' ' '\n' |grep '[0-9]')
 release="$(lsb_release -s -r)"
 codename="$(lsb_release -s -c)"
-VERSION='ubuntu'
 QTLINUX='/usr/local/qtlinux'
 
 # Defining software pack for all distros
@@ -63,25 +60,25 @@ help() {
 
 # function to set default value for variable
 set_default_value() {
-    eval variable=\$$1
+    eval variable=\$"$1"
     if [[ -z "$variable" ]]; then
-        eval $1=$2
+        eval "$1"="$2"
     fi
 
     if [[ "$variable" != "yes" ]] && [[ $variable != "no" ]]; then
-        eval $1=$2
+        eval "$1"="$2"
     fi
 }
 
 check_result() {
     if [[ $1 -ne 0 ]]; then
         echo "Error: $2"
-        exit $1
+        exit "$1"
     fi
 }
 
 gen_pass() {
-    password=$(cat /dev/urandom | tr -dc 'A-Za-z0-9@$%^*-=,.' | head -c 16)
+    password=$(tr -dc 'A-Za-z0-9@$%^*-=,.' < /dev/urandom | head -c 16)
     echo "$password"
 }
 
@@ -114,7 +111,7 @@ done
 eval set -- "$args"
 
 # parse arguments
-while getopts "a:n:v:m:w:z:e:d:l:s:c:i:" option; do
+while getopts "a:n:v:m:w:z:e:d:l:s:c:i:h" option; do
     case $option in
         a)  apache=$OPTARG ;;
         n)  nginx=$OPTARG ;;
@@ -161,10 +158,10 @@ fi
 
 # check installed packet
 tmpfile=$(mktemp -p /tmp)
-dpkg --get-selections > $tmpfile
+dpkg --get-selections > "$tmpfile"
 
 for pkg in mysql-server apache2 nginx; do
-    if [[ ! -z "$(grep $pkg $tmpfile)" ]]; then
+    if grep -q "$pkg" "$tmpfile"; then
         conflicts="$pkg $conflicts"
     fi
 done
@@ -210,9 +207,9 @@ fi
 # Mail stack
 if [ "$exim" = 'yes' ]; then
     echo -n '   - Exim Mail Server'
-    if [ "$clamd" = 'yes'  ] ||  [ "$spamassassin" = 'yes' ] ; then
+    if [ "$clamav" = 'yes'  ] ||  [ "$spamassassin" = 'yes' ] ; then
         echo -n ' + '
-        if [ "$clamd" = 'yes' ]; then
+        if [ "$clamav" = 'yes' ]; then
             echo -n 'ClamAV'
         fi
         if [ "$spamassassin" = 'yes' ]; then
@@ -243,7 +240,7 @@ echo -e "\n\n"
 
 # Asking for confirmation to proceed
 if [ "$interactive" = 'yes' ]; then
-    read -p 'Would you like to continue [y/n]: ' answer
+    read -r -p 'Would you like to continue [y/n]: ' answer
     if [ "$answer" != 'y' ] && [ "$answer" != 'Y'  ]; then
         echo 'Goodbye'
         exit 1
@@ -251,7 +248,7 @@ if [ "$interactive" = 'yes' ]; then
 
     # Asking to set FQDN hostname
     if [ -z "$servername" ]; then
-        read -p "Please enter FQDN hostname [$(hostname -f)]: " servername
+        read -r -p "Please enter FQDN hostname [$(hostname -f)]: " servername
     fi
 fi
 
@@ -264,7 +261,7 @@ fi
 mask1='(([[:alnum:]](-?[[:alnum:]])*)\.)'
 mask2='*[[:alnum:]](-?[[:alnum:]])+\.[[:alnum:]]{2,}'
 if ! [[ "$servername" =~ ^${mask1}${mask2}$ ]]; then
-    if [ ! -z "$servername" ]; then
+    if [ -n "$servername" ]; then
         servername="$servername.example.com"
     else
         servername="example.com"
@@ -306,7 +303,7 @@ check_result $? 'apt-get upgrade failed'
 
 # Checking universe repository
 if [[ ${release:0:2} -gt 16 ]]; then
-    if [ -z "$(grep universe /etc/apt/sources.list)" ]; then
+    if ! grep -q universe /etc/apt/sources.list; then
         add-apt-repository -y universe
     fi
 fi
@@ -323,55 +320,55 @@ apt-key add /tmp/nginx_signing.key
 #----------------------------------------------------------#
 
 # Creating backup directory tree
-mkdir -p $qtlinux_backups
-cd $qtlinux_backups
+mkdir -p "$qtlinux_backups"
+cd "$qtlinux_backups"
 mkdir nginx apache2 php vsftpd exim4 dovecot clamd
 mkdir spamassassin mysql
 
 # Backup nginx configuration
 service nginx stop > /dev/null 2>&1
-cp -r /etc/nginx/* $qtlinux_backups/nginx >/dev/null 2>&1
+cp -r /etc/nginx/* "$qtlinux_backups/nginx" >/dev/null 2>&1
 
 # Backup Apache configuration
 service apache2 stop > /dev/null 2>&1
-cp -r /etc/apache2/* $qtlinux_backups/apache2 > /dev/null 2>&1
+cp -r /etc/apache2/* "$qtlinux_backups/apache2" > /dev/null 2>&1
 rm -f /etc/apache2/conf.d/* > /dev/null 2>&1
 
 # Backup PHP-FPM configuration
 service php7.0-fpm stop > /dev/null 2>&1
 service php5-fpm stop > /dev/null 2>&1
 service php-fpm stop > /dev/null 2>&1
-cp -r /etc/php7.0/* $qtlinux_backups/php/ > /dev/null 2>&1
-cp -r /etc/php5/* $qtlinux_backups/php/ > /dev/null 2>&1
-cp -r /etc/php/* $qtlinux_backups/php/ > /dev/null 2>&1
+cp -r /etc/php7.0/* "$qtlinux_backups/php/" > /dev/null 2>&1
+cp -r /etc/php5/* "$qtlinux_backups/php/" > /dev/null 2>&1
+cp -r /etc/php/* "$qtlinux_backups/php/" > /dev/null 2>&1
 
 # Backup Vsftpd configuration
 service vsftpd stop > /dev/null 2>&1
-cp /etc/vsftpd.conf $qtlinux_backups/vsftpd > /dev/null 2>&1
+cp /etc/vsftpd.conf "$qtlinux_backups/vsftpd" > /dev/null 2>&1
 
 # Backup Exim configuration
 service exim4 stop > /dev/null 2>&1
-cp -r /etc/exim4/* $qtlinux_backups/exim4 > /dev/null 2>&1
+cp -r /etc/exim4/* "$qtlinux_backups/exim4" > /dev/null 2>&1
 
 # Backup ClamAV configuration
 service clamav-daemon stop > /dev/null 2>&1
-cp -r /etc/clamav/* $qtlinux_backups/clamav > /dev/null 2>&1
+cp -r /etc/clamav/* "$qtlinux_backups/clamav" > /dev/null 2>&1
 
 # Backup SpamAssassin configuration
 service spamassassin stop > /dev/null 2>&1
-cp -r /etc/spamassassin/* $qtlinux_backups/spamassassin > /dev/null 2>&1
+cp -r /etc/spamassassin/* "$qtlinux_backups/spamassassin" > /dev/null 2>&1
 
 # Backup Dovecot configuration
 service dovecot stop > /dev/null 2>&1
-cp /etc/dovecot.conf $qtlinux_backups/dovecot > /dev/null 2>&1
-cp -r /etc/dovecot/* $qtlinux_backups/dovecot > /dev/null 2>&1
+cp /etc/dovecot.conf "$qtlinux_backups/dovecot" > /dev/null 2>&1
+cp -r /etc/dovecot/* "$qtlinux_backups/dovecot" > /dev/null 2>&1
 
 # Backup MySQL/MariaDB configuration and data
 service mysql stop > /dev/null 2>&1
 killall -9 mysqld > /dev/null 2>&1
-mv /var/lib/mysql $qtlinux_backups/mysql/mysql_datadir > /dev/null 2>&1
-cp -r /etc/mysql/* $qtlinux_backups/mysql > /dev/null 2>&1
-mv -f /root/.my.cnf $qtlinux_backups/mysql > /dev/null 2>&1
+mv /var/lib/mysql "$qtlinux_backups/mysql/mysql_datadir" > /dev/null 2>&1
+cp -r /etc/mysql/* "$qtlinux_backups/mysql" > /dev/null 2>&1
+mv -f /root/.my.cnf "$qtlinux_backups/mysql" > /dev/null 2>&1
 if [ "$release" = '16.04' ] && [ -e '/etc/init.d/mysql' ]; then
     mkdir -p /var/lib/mysql > /dev/null 2>&1
     chown mysql:mysql /var/lib/mysql
@@ -418,7 +415,7 @@ if [ "$exim" = 'no' ]; then
     software=$(echo "$software" | sed -e "s/clamav-daemon//")
     software=$(echo "$software" | sed -e "s/spamassassin//")
 fi
-if [ "$clamd" = 'no' ]; then
+if [ "$clamav" = 'no' ]; then
     software=$(echo "$software" | sed -e "s/clamav-daemon//")
 fi
 if [ "$spamassassin" = 'no' ]; then
@@ -470,7 +467,7 @@ service ssh restart
 rm -f /etc/cron.d/awstats
 
 # Registering /usr/sbin/nologin
-if [ -z "$(grep nologin /etc/shells)" ]; then
+if ! grep -q nologin /etc/shells; then
     echo "/usr/sbin/nologin" >> /etc/shells
 fi
 
@@ -501,12 +498,19 @@ chmod 660 $QTLINUX/conf/qtlinux.conf
 
 # Web stack
 if [ "$apache" = 'yes' ] && [ "$nginx" = 'no' ] ; then
-    echo "WEB_SYSTEM='apache2'" >> $QTLINUX/conf/qtlinux.conf
-    echo "WEB_RGROUPS='www-data'" >> $QTLINUX/conf/qtlinux.conf
-    echo "WEB_PORT='80'" >> $QTLINUX/conf/qtlinux.conf
-    echo "WEB_SSL_PORT='443'" >> $QTLINUX/conf/qtlinux.conf
-    echo "WEB_SSL='mod_ssl'"  >> $QTLINUX/conf/qtlinux.conf
-    echo "STATS_SYSTEM='webalizer,awstats'" >> $QTLINUX/conf/qtlinux.conf
+    # echo "WEB_SYSTEM='apache2'" >> $QTLINUX/conf/qtlinux.conf
+    # echo "WEB_RGROUPS='www-data'" >> $QTLINUX/conf/qtlinux.conf
+    # echo "WEB_PORT='80'" >> $QTLINUX/conf/qtlinux.conf
+    # echo "WEB_SSL_PORT='443'" >> $QTLINUX/conf/qtlinux.conf
+    # echo "WEB_SSL='mod_ssl'"  >> $QTLINUX/conf/qtlinux.conf
+    # echo "STATS_SYSTEM='webalizer,awstats'" >> $QTLINUX/conf/qtlinux.conf
+    
+    { echo "WEB_SYSTEM='apache2'"; 
+    echo "WEB_RGROUPS='www-data'";
+    echo "WEB_PORT='80'"; 
+    echo "WEB_SSL_PORT='443'";
+    echo "WEB_SSL='mod_ssl'";
+    echo "STATS_SYSTEM='webalizer,awstats'"; } >> "$QTLINUX/conf/qtlinux.conf"
 fi
 if [ "$apache" = 'yes' ] && [ "$nginx"  = 'yes' ] ; then
     echo "WEB_SYSTEM='apache2'" >> $QTLINUX/conf/qtlinux.conf
@@ -538,7 +542,7 @@ fi
 # Mail stack
 if [ "$exim" = 'yes' ]; then
     echo "MAIL_SYSTEM='exim4'" >> $QTLINUX/conf/qtlinux.conf
-    if [ "$clamd" = 'yes'  ]; then
+    if [ "$clamav" = 'yes'  ]; then
         echo "ANTIVIRUS_SYSTEM='clamav-daemon'" >> $QTLINUX/conf/qtlinux.conf
     fi
     if [ "$spamassassin" = 'yes' ]; then
@@ -563,7 +567,7 @@ echo "VERSION='0.1'" >> $QTLINUX/conf/qtlinux.conf
 $QTLINUX/bin/v-change-sys-hostname $servername 2>/dev/null
 
 # Generating SSL certificate
-$QTLINUX/bin/v-generate-ssl-cert $(hostname) $email 'US' 'California' \
+$QTLINUX/bin/v-generate-ssl-cert "$(hostname)" "$email" 'US' 'California' \
      'San Francisco' 'qtlinux Control Panel' 'IT' > /tmp/qtlinux.pem
 
 # Parsing certificate file
@@ -580,7 +584,7 @@ chmod 660 $QTLINUX/ssl/*
 rm /tmp/qtlinux.pem
 
 # Adding nologin as a valid system shell
-if [ -z "$(grep nologin /etc/shells)" ]; then
+if ! grep -q nologin /etc/shells; then
     echo "/usr/sbin/nologin" >> /etc/shells
 fi
 
@@ -645,10 +649,10 @@ if [ "$phpfpm" = 'yes' ]; then
     pool=$(find /etc/php* -type d \( -name "pool.d" -o -name "*fpm.d" \))
     # cp -f $QTLINUXcp/php-fpm/www.conf $pool/
     php_fpm=$(ls /etc/init.d/php*-fpm* |cut -f 4 -d /)
-    ln -s /etc/init.d/$php_fpm /etc/init.d/php-fpm > /dev/null 2>&1
-    update-rc.d $php_fpm defaults
-    service $php_fpm start
-    check_result $? "php-fpm start failed"
+    ln -s "/etc/init.d/$php_fpm" /etc/init.d/php-fpm > /dev/null 2>&1
+    update-rc.d "$php_fpm" defaults
+    service "$php_fpm" start
+    check_result "$?" "php-fpm start failed"
 fi
 
 
@@ -661,8 +665,8 @@ if [ -z "$ZONE" ]; then
     ZONE='UTC'
 fi
 for pconf in $(find /etc/php* -name php.ini); do
-    sed -i "s%;date.timezone =%date.timezone = $ZONE%g" $pconf
-    sed -i 's%_open_tag = Off%_open_tag = On%g' $pconf
+    sed -i "s%;date.timezone =%date.timezone = $ZONE%g" "$pconf"
+    sed -i 's%_open_tag = Off%_open_tag = On%g' "$pconf"
 done
 
 
@@ -690,10 +694,10 @@ fi
 
 if [ "$mysql" = 'yes' ]; then
     mycnf="my-small.cnf"
-    if [ $memory -gt 1200000 ]; then
+    if [ "$memory" -gt 1200000 ]; then
         mycnf="my-medium.cnf"
     fi
-    if [ $memory -gt 3900000 ]; then
+    if [ "$memory" -gt 3900000 ]; then
         mycnf="my-large.cnf"
     fi
 
@@ -713,7 +717,7 @@ if [ "$mysql" = 'yes' ]; then
 
     # Securing MySQL/MariaDB installation
     mpass=$(gen_pass)
-    mysqladmin -u root password $mpass
+    mysqladmin -u root password "$mpass"
     echo -e "[client]\npassword='$mpass'\n" > /root/.my.cnf
     chmod 600 /root/.my.cnf
     mysql -e "DELETE FROM mysql.user WHERE User=''"
@@ -734,6 +738,7 @@ if [ "$mysql" = 'yes' ]; then
             TO phpmyadmin@localhost IDENTIFIED BY '$p'"
     else
         # cp -f $QTLINUXcp/pma/config.inc.php /etc/phpmyadmin/
+        :
     fi
     chmod 777 /var/lib/phpmyadmin/tmp
 fi
@@ -749,10 +754,10 @@ if [ "$exim" = 'yes' ]; then
     # cp -f $QTLINUXcp/exim/spam-blocks.conf /etc/exim4/
     touch /etc/exim4/white-blocks.conf
 
-    if [ "$spamd" = 'yes' ]; then
+    if [ "$spamassassin" = 'yes' ]; then
         sed -i "s/#SPAM/SPAM/g" /etc/exim4/exim4.conf.template
     fi
-    if [ "$clamd" = 'yes' ]; then
+    if [ "$clamav" = 'yes' ]; then
         sed -i "s/#CLAMD/CLAMD/g" /etc/exim4/exim4.conf.template
     fi
 
@@ -781,7 +786,7 @@ if [ "$dovecot" = 'yes' ]; then
     gpasswd -a dovecot mail
     if [[ ${release:0:2} -ge 18 ]]; then
         cp -r /usr/local/qtlinux/install/debian/9/dovecot /etc/
-        if [ -z "$(grep yes /etc/dovecot/conf.d/10-mail.conf)" ]; then
+        if ! grep -q yes /etc/dovecot/conf.d/10-mail.conf; then
             echo "namespace inbox {" >> /etc/dovecot/conf.d/10-mail.conf
             echo "  inbox = yes" >> /etc/dovecot/conf.d/10-mail.conf
             echo "}" >> /etc/dovecot/conf.d/10-mail.conf
@@ -790,6 +795,7 @@ if [ "$dovecot" = 'yes' ]; then
         fi
     else
         # cp -rf $QTLINUXcp/dovecot /etc/
+        :
     fi
     # cp -f $QTLINUXcp/logrotate/dovecot /etc/logrotate.d/
     chown -R root:root /etc/dovecot*
@@ -803,7 +809,7 @@ fi
 #                     Configure ClamAV                     #
 #----------------------------------------------------------#
 
-if [ "$clamd" = 'yes' ]; then
+if [ "$clamav" = 'yes' ]; then
     gpasswd -a clamav mail
     gpasswd -a clamav Debian-exim
     # cp -f $QTLINUXcp/clamav/clamd.conf /etc/clamav/
@@ -818,7 +824,7 @@ fi
 #                  Configure SpamAssassin                  #
 #----------------------------------------------------------#
 
-if [ "$spamd" = 'yes' ]; then
+if [ "$spamassassin" = 'yes' ]; then
     update-rc.d spamassassin defaults
     sed -i "s/ENABLED=0/ENABLED=1/" /etc/default/spamassassin
     service spamassassin start
