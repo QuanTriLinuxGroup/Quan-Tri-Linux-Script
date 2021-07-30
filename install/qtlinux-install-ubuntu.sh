@@ -87,7 +87,6 @@ gen_pass() {
 #-------------------------------------------------#
 
 # translate long option to short option to compatible with getopts
-
 args=""
 for arg in "$@"; do
     case $arg in
@@ -505,12 +504,15 @@ if [ "$apache" = 'yes' ] && [ "$nginx" = 'no' ] ; then
     # echo "WEB_SSL='mod_ssl'"  >> $QTLINUX/conf/qtlinux.conf
     # echo "STATS_SYSTEM='webalizer,awstats'" >> $QTLINUX/conf/qtlinux.conf
     
-    { echo "WEB_SYSTEM='apache2'"; 
-    echo "WEB_RGROUPS='www-data'";
-    echo "WEB_PORT='80'"; 
-    echo "WEB_SSL_PORT='443'";
-    echo "WEB_SSL='mod_ssl'";
-    echo "STATS_SYSTEM='webalizer,awstats'"; } >> "$QTLINUX/conf/qtlinux.conf"
+    cat >> "$QTLINUX/conf/qtlinux.conf" <<EOF
+WEB_SYSTEM='apache2'
+WEB_RGROUPS='www-data'
+WEB_PORT='80'
+WEB_SSL_PORT='443'
+WEB_SSL='mod_ssl'
+STATS_SYSTEM='webalizer,awstats'
+EOF
+
 fi
 if [ "$apache" = 'yes' ] && [ "$nginx"  = 'yes' ] ; then
     echo "WEB_SYSTEM='apache2'" >> $QTLINUX/conf/qtlinux.conf
